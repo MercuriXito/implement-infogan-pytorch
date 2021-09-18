@@ -8,17 +8,18 @@ import random
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from models import Discriminator, Generator, QHead, DHead
+from models.dcgan import Discriminator, Generator, QHead, DHead
 from info_utils import NoiseGenerator, InfoGANLoss
 from opt import get_options, choose_dataset
-from utils.misc import save_opt, TensorImageUtils, save_model
+from utils.misc import json_dump, save_opt, TensorImageUtils
+from utils.eval import FIDEvaluator
 
 opt = get_options()
 save_path = opt.save_path
 os.makedirs(save_path, exist_ok=True)
 save_opt(save_path, opt)
 
-#------------------ configuratoin -------------------------
+# ------------------ configuratoin -------------------------
 # fix seed
 seed = opt.seed
 torch.random.manual_seed(seed)
@@ -76,6 +77,11 @@ optimizer_G = optim.Adam([
 beta = 1
 infoGAN_criterion = InfoGANLoss(beta)
 noiseG = NoiseGenerator(dim_z, num_clsses, num_continuous_variables, device=device)
+
+# evaluator
+tmp_eval_path = os.path.join(save_path, "eval")
+evaluator = FIDEvaluator(tmp_path=tmp_eval_path)
+eval_res = []
 
 #------------------ Training -------------------------
 tensor_true = torch.tensor([1], dtype=torch.float, device=device)
@@ -145,6 +151,15 @@ for epoch in range(epochs):
         torch.save(netD.state_dict(), os.path.join(save_path, "netD.pt"))
         utiler.save_images(images, "real_{}.png".format(epoch+1), nrow=nrow)
         utiler.save_images(fake, "fake_{}.png".format(epoch+1), nrow=nrow)
+
+        # evaluation
+        fid_score = evaluator.evaluate(netG, noiseG, data, device)
+        writer.add_scalar("eval/fid", fid_score, epoch)
+        epoch_eval_res = {
+            f"{epoch}": dict(fid=fid_score)
+        }
+        eval_res.append(epoch_eval_res)
+        json_dump(eval_res, os.path.join(save_path, "evaluation.json"))
 
 endtime = time.process_time()
 consume_time = endtime - starttime

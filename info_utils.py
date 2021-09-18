@@ -1,4 +1,3 @@
-import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -55,8 +54,9 @@ class NoiseGenerator:
 
         return [z, z_con, z_dis, labels]
 
-    def traversal_get(self, batch_size, idx_con=-1, idx_dis=-1, z_con_range=(-1,1),
-            seed=5224, fix_mode=False):
+    def traversal_get(
+            self, batch_size, idx_con=-1, idx_dis=-1,
+            z_con_range=(-1, 1), seed=5224, fix_mode=False):
         """Generate random vectors for traveral.
         """
 
@@ -68,9 +68,9 @@ class NoiseGenerator:
             z = self.fix_other_traverse(batch_size, idx_con, idx_dis, z_con_range, seed)
         return z
 
-
-    def fix_target(self, batch_size, idx_con=-1, idx_dis=-1, z_con_range=(-1,1),
-            seed=5224):
+    def fix_target(
+            self, batch_size, idx_con=-1, idx_dis=-1,
+            z_con_range=(-1, 1), seed=5224):
         """ traverse while fixing targeted variables
         """
 
@@ -104,8 +104,9 @@ class NoiseGenerator:
         z = torch.cat([z, z_con, z_dis], dim = 1).to(self.device)
         return z
 
-    def fix_other_traverse(self, batch_size, idx_con=-1, idx_dis=-1, z_con_range=(-1,1),
-            seed=5224):
+    def fix_other_traverse(
+            self, batch_size, idx_con=-1, idx_dis=-1,
+            z_con_range=(-1, 1), seed=5224):
         """ traverse while fixing other unrelated variables
         """
 
@@ -202,7 +203,7 @@ class InfoGANLoss:
             dis_labels          (list)      - ground true labels of all discrete variables
             con_z               (tensor)    - latent value of continuous variables
         """
-        
+
         adv_out, dis_outs, con_out = out_d
         adv_loss = self.adv_criterion(adv_out, adv_label)
 
@@ -219,14 +220,17 @@ class InfoGANLoss:
 
         return adv_loss + self.beta * ( dis_losses + con_loss).mean()
 
+
 def traverse():
     opt = get_traverse_options()
 
-    from models import Generator
-    from utils import TensorImageUtils
+    from models.dcgan import Generator
+    from utils.misc import TensorImageUtils
 
     utiler = TensorImageUtils()
     in_channels = opt.in_channels
+    if opt.data_name == "MNIST":
+        in_channels = 1
     dim_z = opt.dim_z
     num_classes = opt.ndlist
     num_categorical_variables = len(num_classes)

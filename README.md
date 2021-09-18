@@ -9,9 +9,10 @@ Implementation of [Infogan: Interpretable representation learning by information
 ```sh
 python infoGAN.py --help # for help
 python infoGAN.py
+# check bin/train.sh as an example.
 ```
 
-Training results are under `tmp/save_<time>/`.
+Training results are under folder specified by `--save-path` in args.
 
 For other datasets:
 
@@ -24,23 +25,17 @@ For other datasets:
 ```sh
 python info_util.py --help # for help
 python info_util.py --model-path </path/to/netG.pt> --cidx <targeted-continuous-idx> --didx <targeted-discrete-idx>
+# check bin/traverse.sh as an example.
 ```
 
 ### evaluation with FID
 
 ```sh
 python -m utils.eval --help # for help
+# check bin/eval.sh as an example.
 ```
-
-check `bin/eval.sh` as an example.
 
 ## Results on MNIST
-
-train options:
-
-```sh
-python infoGAN.py --epochs 50 --batch-size 128
-```
 
 Traverse results on three continuous variables (fixing other variables) and
 one discrete variables ( fixing the discrete variable and randomly choose other variables ).
@@ -51,9 +46,9 @@ one discrete variables ( fixing the discrete variable and randomly choose other 
 | **3rd continuous factor (*Controlling the stroke thickness of digits*)** | **1st discrete factor (*Almostly preserving the class of digits*)**  |
 | ![traverse c2](res/traversal_c2.png) | ![fix d0](res/fix_d0.png) |
 
-## Plans
+## Update
 
-+ [x] Evaluation with FID.
++ [x] Evaluation with FID; Refactor some functions. Sep 18th. 21.
 + [ ] More training results on other datasets.
 + [ ] Adaptive module to apply infoGAN on other GAN models: like Info-ProGAN. Check the `info_util.py` for loss and noise generator used in InfoGAN.
 

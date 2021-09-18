@@ -8,7 +8,7 @@ from opt import choose_dataset, get_traverse_options
 from utils.misc import de_norm
 from utils.fid_score import calculate_fid_given_paths
 from info_utils import NoiseGenerator
-from models import Generator
+from models.dcgan import Generator
 
 
 class FIDEvaluator:
@@ -81,21 +81,22 @@ class FIDEvaluator:
         return fid_value
 
 
-# start evaluation.
-opt = get_traverse_options()
-evaluator = FIDEvaluator(N=5000, batch_size=opt.batch_size)
+if __name__ == '__main__':
+    # start evaluation.
+    opt = get_traverse_options()
+    evaluator = FIDEvaluator(N=5000, batch_size=opt.batch_size)
 
-# load data
-data = choose_dataset(opt)
-if opt.data_name == "MNIST" or opt.data_name == "fashion":
-    opt.in_channels = 1
+    # load data
+    data = choose_dataset(opt)
+    if opt.data_name == "MNIST" or opt.data_name == "fashion":
+        opt.in_channels = 1
 
-# build and load model
-netG = Generator(opt.in_channels, opt.dim_z)
-netG.cuda()
-netG.load_state_dict(torch.load(opt.model_path))
-noiseG = NoiseGenerator(opt.dim_z, opt.ndlist, opt.ncz)
-device = torch.device(
-    "cuda" if opt.cuda and torch.cuda.is_available() else "cpu")
+    # build and load model
+    netG = Generator(opt.in_channels, opt.dim_z)
+    netG.cuda()
+    netG.load_state_dict(torch.load(opt.model_path))
+    noiseG = NoiseGenerator(opt.dim_z, opt.ndlist, opt.ncz)
+    device = torch.device(
+        "cuda" if opt.cuda and torch.cuda.is_available() else "cpu")
 
-evaluator.evaluate(netG, noiseG, data, device)
+    evaluator.evaluate(netG, noiseG, data, device)
