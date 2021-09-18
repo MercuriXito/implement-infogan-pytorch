@@ -1,28 +1,30 @@
-import time, os
+import os
+import time
+from tqdm import tqdm
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import numpy as np
+import random
 import torch.optim as optim
-
 from torch.utils.tensorboard import SummaryWriter
-
-notebook = False
-if notebook:
-    from tqdm.notebook import tqdm_notebook as tqdm
-else:
-    from tqdm import tqdm
 
 from models import Discriminator, Generator, QHead, DHead
 from info_utils import NoiseGenerator, InfoGANLoss
-
 from opt import get_options, choose_dataset
+from utils.misc import save_opt, TensorImageUtils, save_model
+
 opt = get_options()
+save_path = opt.save_path
+os.makedirs(save_path, exist_ok=True)
+save_opt(save_path, opt)
 
 #------------------ configuratoin -------------------------
-from utils import test_and_add_postfix_dir, test_and_make_dir, currentTime, \
-    TensorImageUtils, save_model
-from data import get_mnist, get_cifar10, get_fashion
+# fix seed
+seed = opt.seed
+torch.random.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
 
 # infoGAN related configuration
 num_clsses = opt.ndlist
@@ -36,10 +38,9 @@ lr_D = opt.lrD
 lr_G = opt.lrG
 epochs = opt.epochs
 save_epoch_interval = opt.save_epoch_interval
+train_D_iter = opt.train_D_iter
 
 # persistence related parameters
-save_path = test_and_add_postfix_dir("tmp" + os.sep + "save_" + currentTime()) 
-test_and_make_dir(save_path)
 writer = SummaryWriter(save_path)
 utiler = TensorImageUtils(save_path)
 nrow = opt.nrow
@@ -52,8 +53,8 @@ in_channels = opt.in_channels
 dim_z = opt.dim_z
 netD = Discriminator(in_channels, dim_z)
 netG = Generator(in_channels, dim_z)
-headD = DHead()
-headQ = QHead(num_clsses, num_continuous_variables)
+headD = DHead(512)
+headQ = QHead(512, num_clsses, num_continuous_variables)
 
 if use_cuda:
     netD.cuda()
@@ -80,9 +81,10 @@ noiseG = NoiseGenerator(dim_z, num_clsses, num_continuous_variables, device=devi
 tensor_true = torch.tensor([1], dtype=torch.float, device=device)
 tensor_fake = torch.tensor([0], dtype=torch.float, device=device)
 
-step = 1
+Dstep = 1
+Gstep = 1
 print("Start Training, using {}".format(device))
-starttime = time.clock()
+starttime = time.process_time()
 for epoch in range(epochs):
     for i, batch in enumerate(tqdm(data)):
         images, _ = batch
@@ -92,25 +94,27 @@ for epoch in range(epochs):
         batch_size = images.size(0)
 
         # ======================== Update Discriminator ===========================
-        optimizer_D.zero_grad()
+        for i in range(train_D_iter):
+            optimizer_D.zero_grad()
 
-        # noise 
-        zu, zc, zd, zd_labels = noiseG.random_get(batch_size)
-        z = torch.cat([zu, zc, zd], dim=1)
+            # noise
+            zu, zc, zd, zd_labels = noiseG.random_get(batch_size)
+            z = torch.cat([zu, zc, zd], dim=1)
 
-        fake = netG(z)
-        out_fake = headD(netD(fake))
-        labels_fake = tensor_fake.expand_as(out_fake)
-        lossD_fake = infoGAN_criterion.get_adv_loss(out_fake, labels_fake)
+            fake = netG(z)
+            out_fake = headD(netD(fake))
+            labels_fake = tensor_fake.expand_as(out_fake)
+            lossD_fake = infoGAN_criterion.get_adv_loss(out_fake, labels_fake)
 
-        out_true = headD(netD(images))
-        labels_true = tensor_true.expand_as(out_true)
-        lossD_true = infoGAN_criterion.get_adv_loss(out_true, labels_true)
-        lossD = lossD_fake + lossD_true
+            out_true = headD(netD(images))
+            labels_true = tensor_true.expand_as(out_true)
+            lossD_true = infoGAN_criterion.get_adv_loss(out_true, labels_true)
+            lossD = lossD_fake + lossD_true
 
-        lossD.backward()
-        optimizer_D.step()
-        writer.add_scalar("lossD", lossD.item(), step)
+            lossD.backward()
+            optimizer_D.step()
+            writer.add_scalar("lossD", lossD.item(), Dstep)
+            Dstep += 1
 
         # ======================== Update Generator ===========================
         optimizer_G.zero_grad()
@@ -131,17 +135,17 @@ for epoch in range(epochs):
         lossG.backward()
         optimizer_G.step()
 
-        writer.add_scalar("lossG", lossG.item(), step)
-        writer.add_scalar("lossG_adv", lossG_adv.item(), step)
-        writer.add_scalar("lossG_mi", lossG_mi.item(), step)
-        step += 1
+        writer.add_scalar("lossG", lossG.item(), Gstep)
+        writer.add_scalar("lossG_adv", lossG_adv.item(), Gstep)
+        writer.add_scalar("lossG_mi", lossG_mi.item(), Gstep)
+        Gstep += 1
 
     if (epoch + 1) % save_epoch_interval == 0 or epoch == epochs - 1:
-        save_model(netG, save_path, "netG.pt")
-        save_model(netD, save_path, "netD.pt")
+        torch.save(netG.state_dict(), os.path.join(save_path, "netG.pt"))
+        torch.save(netD.state_dict(), os.path.join(save_path, "netD.pt"))
         utiler.save_images(images, "real_{}.png".format(epoch+1), nrow=nrow)
         utiler.save_images(fake, "fake_{}.png".format(epoch+1), nrow=nrow)
-        
-endtime = time.clock()
+
+endtime = time.process_time()
 consume_time = endtime - starttime
 print("Training Complete, Using %d min %d s" %(consume_time // 60,consume_time % 60))

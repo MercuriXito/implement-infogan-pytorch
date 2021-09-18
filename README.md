@@ -17,7 +17,7 @@ For other datasets:
 
 + put it under `data/`  
 + write `get_data` function in `data.py`
-+ register it in `opt.py`
++ register it in `opt.py` and `data.py`
 
 ### traverse
 
@@ -25,6 +25,14 @@ For other datasets:
 python info_util.py --help # for help
 python info_util.py --model-path </path/to/netG.pt> --cidx <targeted-continuous-idx> --didx <targeted-discrete-idx>
 ```
+
+### evaluation with FID
+
+```sh
+python -m utils.eval --help # for help
+```
+
+check `bin/eval.sh` as an example.
 
 ## Results on MNIST
 
@@ -45,6 +53,7 @@ one discrete variables ( fixing the discrete variable and randomly choose other 
 
 ## Plans
 
++ [x] Evaluation with FID.
 + [ ] More training results on other datasets.
 + [ ] Adaptive module to apply infoGAN on other GAN models: like Info-ProGAN. Check the `info_util.py` for loss and noise generator used in InfoGAN.
 

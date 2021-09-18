@@ -1,22 +1,15 @@
-import os, sys, time, json
+import torch
+import os
+import time
+import json
 from torchvision.utils import make_grid, save_image
-from torch import save, load
 
 import matplotlib.pyplot as plt
 
-debug = False
-
-def LogINFO(mess):
-    global debug
-    if debug:
-        print("[ %s ] - %s" %(currentTime(), mess))
-
-def test_and_make_dir(dir):
-    if not os.path.exists(dir):
-        os.makedirs(dir)
 
 def currentTime():
     return time.strftime("%H-%M-%S", time.localtime())
+
 
 def test_and_add_postfix_dir(root):
     seplen = len(os.sep)
@@ -24,15 +17,19 @@ def test_and_add_postfix_dir(root):
         return root + os.sep
     return root
 
+
 def json_dump(obj, filename):
     with open(filename, "w") as f:
         json.dump(obj, f)
 
-def save_opt(root, opt):
-    json_dump(opt._get_kwargs(), root + "config.json")
 
-def save_model(model, root, filename):
-    save(model.state_dict(), root + filename)
+def save_opt(root, opt):
+    json_dump(dict(opt._get_kwargs()), os.path.join(root, "config.json"))
+
+
+def save_model(model, filename):
+    torch.save(model.state_dict(), filename)
+
 
 class TensorImageUtils:
     """Base Class of Tensor-Image utils functions including showing and saving the result images,
@@ -67,6 +64,28 @@ class TensorImageUtils:
         images = self.preprocessor(images)
         save_image(images, self.root + filename,
                    nrow=nrow, normalize=self.normalize, range=self.img_range)
+
+
+def de_norm(img):
+    """ img: 3d or 4d tensor.
+    """
+    mean = torch.tensor([0.5, 0.5, 0.5]).to(img)
+    std = torch.tensor([0.5, 0.5, 0.5]).to(img)
+
+    ndim = len(img.size())
+    if ndim == 3:
+        img = img.unsqueeze(dim=0)
+    else:
+        assert ndim == 4
+
+    mean = mean.view(1, -1, 1, 1)
+    std = std.view(1, -1, 1, 1)
+
+    img = img * std + mean
+    if ndim == 3:
+        img = img.squeeze(dim=0)
+
+    return img
 
 
 if __name__ == "__main__":

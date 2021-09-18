@@ -55,11 +55,12 @@ class Generator(nn.Module):
         z = z.view(z.size(0), self.latent_dim, 1, 1)
         return self.net(z)
 
+
 # G and Discriminator are updated together
 class DHead(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels):
         super(DHead, self).__init__()
-        self.dNet = nn.Conv2d(512, 1, 4, 1, 0)
+        self.dNet = nn.Conv2d(in_channels, 1, 4, 1, 0)
 
     def forward(self, feature):
         return self.dNet(feature).view(feature.size(0), -1)
@@ -67,23 +68,23 @@ class DHead(nn.Module):
 
 # Q and Generator are updated together
 class QHead(nn.Module):
-    def __init__(self, num_clsses: list, num_con_var: int):
+    def __init__(self, in_channels, num_clsses: list, num_con_var: int):
         super(QHead, self).__init__()
         # Multiple parallel network for discrete variables
         self.catNets = nn.ModuleList([
-            nn.Conv2d(512, clss, 4, 1, 0) for clss in num_clsses
+            nn.Conv2d(in_channels, clss, 4, 1, 0) for clss in num_clsses
         ])
 
         # output mean and variance of each factors
         self.meanNet = nn.Sequential(
-            nn.Conv2d(512, 64, 3, 1, 1),
+            nn.Conv2d(in_channels, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0,2),
             nn.Conv2d(64, num_con_var, 4, 1, 0),
         )
 
         self.logvarNet = nn.Sequential(
-            nn.Conv2d(512, 64, 3, 1, 1),
+            nn.Conv2d(in_channels, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0,2),
             nn.Conv2d(64, num_con_var, 4, 1, 0),
@@ -97,5 +98,4 @@ class QHead(nn.Module):
             dis_out.append(cNet(feature).view(bs, -1))
         logvar_out = self.logvarNet(feature).view(bs, -1)
         mean_out = self.meanNet(feature).view(bs, -1)
-
-        return [dis_out, (mean_out, logvar_out) ]
+        return [dis_out, (mean_out, logvar_out)]
